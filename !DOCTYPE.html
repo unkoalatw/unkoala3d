@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>動態倒數計時器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 引入 Inter 字體 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+        /* 定義背景漸層移動的動畫 */
+        @keyframes gradientAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* 定義計時器數字上下浮動動畫 */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); } /* 向上浮動 */
+        }
+
+        /* 定義時間到訊息的出現動畫 */
+        @keyframes fadeInScale {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* 定義訊息的淡入淡出動畫 */
+        @keyframes messageFade {
+            0% { opacity: 0; transform: translateY(20px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column; /* 讓內容垂直排列 */
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #f0f0f0; /* 將文字顏色調亮一點以增加對比 */
+
+            /* 設定灰色系的漸層背景 */
+            background: linear-gradient(-45deg, #57606f, #718093, #a4b0be, #ced6e0);
+            background-size: 400% 400%; /* 擴大背景尺寸以利動畫移動 */
+
+            /* 應用動畫 */
+            animation: gradientAnimation 15s ease infinite;
+            overflow: hidden; /* 防止內容溢出 */
+        }
+
+        #countdown {
+            font-size: 12vw; /* 稍微加大字體 */
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 0px 0px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        #message {
+            font-size: 6vw;
+            font-weight: bold;
+            text-align: center;
+            display: none; /* 預設隱藏 */
+            text-shadow: 0px 0px 15px rgba(0, 0, 0, 0.5);
+            animation: fadeInScale 1s ease-out forwards; /* 時間到時的動畫 */
+        }
+
+        /* JavaScript 會動態添加此類別來觸發浮動動畫 */
+        .animate-float {
+            animation: float 2s infinite ease-in-out;
+        }
+
+        .dynamic-message { /* 將 llm-message 更名為 dynamic-message */
+            margin-top: 2rem;
+            font-size: 2.5vw; /* 調整字體大小以適應不同螢幕 */
+            font-weight: normal;
+            text-align: center;
+            color: #d1d5db; /* 淺灰色文字 */
+            background-color: rgba(0, 0, 0, 0.3); /* 半透明背景 */
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem; /* 圓角 */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            max-width: 80%; /* 限制寬度 */
+            opacity: 0; /* 預設隱藏 */
+            animation: messageFade 5s ease-in-out forwards; /* 動畫效果 */
+        }
+
+        /* 響應式調整訊息字體大小 */
+        @media (max-width: 768px) {
+            .dynamic-message {
+                font-size: 4vw;
+            }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div id="countdown">10:00</div>
+    <div id="message" class="hidden">時間到！</div>
+    <div id="dynamicMessage" class="dynamic-message hidden"></div> <!-- 訊息顯示區域 -->
+
+    <script>
+        // 確保在頁面完全載入後才執行 JavaScript
+        window.onload = function() {
+            const countdownElement = document.getElementById('countdown');
+            const messageElement = document.getElementById('message');
+            const dynamicMessageElement = document.getElementById('dynamicMessage'); // 獲取訊息元素
+
+            const initialTime = 10 * 60; // 10 分鐘的總秒數
+            let timeLeft = initialTime;
+            let timer = null; // 用於儲存 setInterval 的 ID
+
+            // 儲存已觸發的訊息時間點，避免重複觸發
+            const triggeredMessageTimes = new Set();
+
+            // 更新計時器顯示
+            function updateDisplay() {
+                const minutes = Math.floor(timeLeft / 60);
+                let seconds = timeLeft % 60;
+                seconds = seconds < 10 ? '0' + seconds : seconds;
+                countdownElement.textContent = `${minutes}:${seconds}`;
+            }
+
+            // 顯示動態訊息並設定自動隱藏
+            function showDynamicMessage(text) {
+                dynamicMessageElement.textContent = `✨ ${text}`;
+                dynamicMessageElement.classList.remove('hidden');
+                dynamicMessageElement.style.animation = 'none'; // 重置動畫
+                void dynamicMessageElement.offsetWidth; // 觸發重繪
+                dynamicMessageElement.style.animation = 'messageFade 5s ease-in-out forwards'; // 重新應用動畫
+
+                // 在動畫結束後隱藏訊息
+                setTimeout(() => {
+                    dynamicMessageElement.classList.add('hidden');
+                }, 5000); // 5 秒後隱藏
+            }
+
+            // 開始計時器
+            function startTimer() {
+                if (timer) return; // 如果計時器已經在運行，則不重複啟動
+
+                messageElement.style.display = 'none'; // 隱藏訊息
+                countdownElement.style.display = 'block'; // 顯示計時器
+                countdownElement.classList.add('animate-float'); // 添加浮動動畫
+
+                // 首次啟動時顯示訊息
+                showDynamicMessage('訂閱我');
+                triggeredMessageTimes.add(initialTime); // 標記為已觸發
+
+                timer = setInterval(() => {
+                    if (timeLeft <= 0) {
+                        clearInterval(timer);
+                        timer = null; // 清除計時器 ID
+                        countdownElement.classList.remove('animate-float'); // 移除浮動動畫
+                        countdownElement.style.display = 'none'; // 隱藏計時器
+                        messageElement.style.display = 'block'; // 顯示訊息
+                        dynamicMessageElement.classList.add('hidden'); // 確保訊息隱藏
+                        return;
+                    }
+
+                    timeLeft--;
+                    updateDisplay();
+
+                    // 檢查是否達到訊息觸發點
+                    const currentTimeInSeconds = timeLeft;
+
+                    const triggerPoints = [
+                        5 * 60, // 5 分鐘
+                        2 * 60, // 2 分鐘
+                        1 * 60, // 1 分鐘
+                        30,     // 30 秒
+                        10,     // 10 秒 (額外增加，用於快速測試)
+                        5       // 5 秒 (額外增加，用於快速測試)
+                    ];
+
+                    if (triggerPoints.includes(currentTimeInSeconds) && !triggeredMessageTimes.has(currentTimeInSeconds)) {
+                        showDynamicMessage('訂閱我');
+                        triggeredMessageTimes.add(currentTimeInSeconds); // 標記為已觸發
+                    }
+
+                }, 1000);
+            }
+
+            // 初始化顯示並自動開始計時器
+            updateDisplay();
+            startTimer(); // 頁面載入時自動開始
+        };
+    </script>
+
+</body>
+</html>
